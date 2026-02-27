@@ -1,0 +1,38 @@
+version: 1.0.{build}
+
+image: Visual Studio 2019
+
+environment:
+  matrix:
+  - generator: "Visual Studio 16"
+    config: Release
+    arch: x86
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+
+  - generator: "Visual Studio 16 Win64"
+    config: Release
+    arch: x64
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+
+init:
+  - git config --global core.autocrlf input
+
+build_script:
+  - cmake -G"%generator%" -H. -Bbuild -DCMAKE_BUILD_TYPE="%config%"
+  - cmake --build build --config "%config%" --parallel
+
+after_build:
+  - ps: |
+      $git_hash = $env:APPVEYOR_REPO_COMMIT.Substring(0, 8)
+      $my_version = "$($env:APPVEYOR_BUILD_VERSION)-$git_hash"
+      $env:PACKAGE_NAME = "humlib-$my_version-$($env:arch)"
+  - mkdir lib
+  - mkdir -p include/pugixml
+  - mkdir -p arc/pugixml
+  - copy "build\\%config%\\humlib.lib" lib
+  - 7z a "%PACKAGE_NAME%.zip" include include/pugixml arc/pugixml lib README.md LICENSE.txt
+
+artifacts:
+  - path: "%PACKAGE_NAME%.zip"
+    name: "%arch"
+

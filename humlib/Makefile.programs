@@ -1,0 +1,141 @@
+##
+## Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
+## Creation Date: Mon Aug 10 16:06:48 PDT 2015
+## Last Modified: Sun Apr 16 10:01:31 PDT 2023
+## Syntax:        GNU Makefile
+## Filename:      Makefile.programs
+## vim:           ts=3
+##
+## Description: Makefile to compile programs using the humlib library.
+##
+## To run this makefile, type (without quotes) "make -f Makefile.examples",
+## (or "gmake -f Makefile.examples" on FreeBSD computers). However this makefile
+## is intended to be used with the file "Makefile" which runs this makefile with
+## the command "make programs".  The program executables will be placed
+## in the "bin" directory.
+##
+## Without arguments or with the argument "programs", this makefile will
+## compile all programs.  If you give a program name as an argument, it
+## will compile just that program. E.g.: "make -f Makefile.programs flipper"
+## or used in conjunction with "Makefile", type "make flipper", which will
+## compile the cli/flipper.cpp program and place it in the ./bin directory.
+
+# Set the environmental variable $MACOSX_DEPLOYMENT_TARGET to
+# "10.9" in Apple OS X to compile for OS X 10.9 and later (for example,
+# you can compile for OS X 10.9 computers even if you are using the 10.10
+# version of the operating system).
+
+ENV =
+ifeq ($(shell uname),Darwin)
+   ENV = MACOSX_DEPLOYMENT_TARGET=10.9
+   # use the following to compile for 32-bit architecture on 64-bit comps:
+   #ARCH = -m32 -arch i386
+else
+   # use the following to compile for 32-bit architecture on 64-bit comps:
+   # (you will need 32-bit libraries in order to do this)
+   # ARCH = -m32
+endif
+
+
+###########################################################################
+#                                                                         #
+# Beginning of user-modifiable configuration variables                    #
+#                                                                         #
+
+INCDIR    = include
+MINDIR    = min
+LIBDIR    = lib
+LIBFILE   = humlib
+TARGDIR   = bin
+TOOLDIR   = cli
+PUGIXML   = pugixml
+MIDIFILE  = midifile
+
+PREFLAGS  = -Wall -Wsign-compare
+PREFLAGS += -O3
+PREFLAGS += -I$(MINDIR)
+PREFLAGS += -I$(INCDIR) -I$(INCDIR)/pugixml -I$(INCDIR)/midifile
+
+# include debugging information:
+#PREFLAGS += -g
+
+# using C++ 2011/2017 standard:
+PREFLAGS += -std=c++17
+
+# MacOS specific warnings
+ifeq ($(shell uname -s),Darwin)
+  PREFLAGS += -Wshorten-64-to-32
+  PREFLAGS += -Wsign-compare
+endif
+
+# Add -static flag to compile without dynamics libraries for better portability:
+#PREFLAGS += -static
+
+POSTFLAGS = -L$(LIBDIR) -l$(LIBFILE) -l$(PUGIXML) -l$(MIDIFILE)
+
+COMPILER       = LANG=C $(ENV) g++ $(ARCH)
+
+# Alternatly, use clang++ v3.3:
+#COMPILER      = clang++
+#PREFLAGS     += -stdlib=libc++
+
+#                                                                         #
+# End of user-modifiable variables.                                       #
+#                                                                         #
+###########################################################################
+
+
+# setting up the directory paths to search for dependency files
+vpath %.h   $(INCDIR) $(INCDIR)/midifile
+vpath %.cpp $(wildcard tests/test-*) examples myprograms
+vpath %.cpp $(wildcard $(TOOLDIR)) examples myprograms
+
+# generating a list of the programs to compile with "make all"
+PROGS1=$(notdir $(patsubst %.cpp,%,$(wildcard $(TOOLDIR)/*.cpp)))
+PROGS=$(PROGS1) testgrid
+
+# targets which don't actually refer to files
+.PHONY: examples
+
+
+###########################################################################
+#                                                                         #
+#                                                                         #
+
+examples: all
+
+all: library bin $(PROGS)
+	@echo Finished compiling all programs: $(PROGS).
+
+library:
+	@make library
+
+info:
+	@echo "Programs to compile: $(PROGS)" | fmt
+
+
+bin:
+ifeq ($(wildcard $(TARGDIR)),)
+	@-mkdir -p $(TARGDIR)
+endif
+
+
+###########################################################################
+#
+# Defining explicit rules for program sourcefile dependencies:
+#
+
+.cpp: library
+ifeq ($(wildcard $(TARGDIR)),)
+	@-mkdir -p $(TARGDIR)
+endif
+	@echo [CC] $@
+	@$(COMPILER) $(PREFLAGS) -o $(TARGDIR)/$@ $< $(POSTFLAGS)
+#		&& strip $(TARGDIR)/$@$(EXTEN)
+
+#                                                                         #
+#                                                                         #
+###########################################################################
+
+
+

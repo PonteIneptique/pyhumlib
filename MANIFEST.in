@@ -1,0 +1,2 @@
+recursive-include humlib/include/ *.h *.cpp
+recursive-include vendor/pugixml/src/ *.h *.cpp

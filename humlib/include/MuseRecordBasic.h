@@ -1,0 +1,300 @@
+//
+// Programmer:    Craig Stuart Sapp <craig@ccrma.stanford.edu>
+// Creation Date: Tue Jun 30 11:51:01 PDT 1998
+// Last Modified: Mon Sep 23 22:43:09 PDT 2019 Convert to STL
+// Filename:      humilb/include/MuseRecordBasic.h
+// URL:           http://github.com/craigsapp/humlib/blob/master/include/MuseRecordBasic.h
+// Syntax:        C++11
+// vim:           ts=3
+//
+// Description:   basic data manipulations for lines in a Musedata file.
+//
+// Reference:     https://wiki.ccarh.org/images/9/9f/Stage2-specs.html
+//
+
+#ifndef _MUSERECORDBASIC_H_INCLUDED
+#define _MUSERECORDBASIC_H_INCLUDED
+
+#include "HumNum.h"
+#include "HumdrumToken.h"
+#include "GridVoice.h"
+
+#include <cstdarg>
+#include <iostream>
+#include <map>
+#include <vector>
+
+
+namespace hum {
+
+class MuseData;
+class MuseRecord;
+class MuseRecordBasic;
+
+// START_MERGE
+
+//////////////////////////////
+//
+// MuseData line types, reference: Beyond Midi, page 410.
+//
+
+#define E_muserec_note_regular       'N'
+	//                                'A' --> use type E_muserec_note_regular
+	//                                'B' --> use type E_muserec_note_regular
+	//                                'C' --> use type E_muserec_note_regular
+	//                                'D' --> use type E_muserec_note_regular
+	//                                'E' --> use type E_muserec_note_regular
+	//                                'F' --> use type E_muserec_note_regular
+	//                                'G' --> use type E_muserec_note_regular
+#define E_muserec_note_chord         'C'
+#define E_muserec_note_cue           'c'
+#define E_muserec_note_grace         'g'
+#define E_muserec_note_grace_chord   'G'
+#define E_muserec_print_suggestion   'P'
+#define E_muserec_sound_directives   'S'
+#define E_muserec_end                '/'
+#define E_muserec_endtext            'T'
+#define E_muserec_append             'a'
+#define E_muserec_backspace          'b'
+#define E_muserec_back               'b'
+#define E_muserec_backward           'b'
+#define E_muserec_figured_harmony    'f'
+#define E_muserec_rest_invisible     'i'
+#define E_muserec_forward            'i'
+#define E_muserec_measure            'm'
+#define E_muserec_rest               'r'
+#define E_muserec_musical_attributes '$'
+#define E_muserec_comment_toggle     '&'
+#define E_muserec_comment_line       '@'
+#define E_muserec_musical_directions '*'
+
+#define E_muserec_copyright          '1'  // reserved for copyright notice
+#define E_muserec_header_1           '1'  // reserved for copyright notice
+
+#define E_muserec_header_2           '2'  // reserved for identification
+#define E_muserec_id                 '2'  // reserved for identification
+
+#define E_muserec_header_3           '3'  // reserved
+
+#define E_muserec_header_4           '4'  // <date> <name of encoder>
+#define E_muserec_encoder            '4'  // <date> <name of encoder>
+
+#define E_muserec_header_5           '5'  // WK#:<work number> MV#:<mvmt num>
+#define E_muserec_work_info          '5'  // WK#:<work number> MV#:<mvmt num>
+
+#define E_muserec_header_6           '6'  // <source>
+#define E_muserec_source             '6'  // <source>
+
+#define E_muserec_header_7           '7'  // <work title>
+#define E_muserec_work_title         '7'  // <work title>
+
+#define E_muserec_header_8           '8'  // <movement title>
+#define E_muserec_movement_title     '8'  // <movement title>
+
+#define E_muserec_header_9           '9'  // <name of part>
+#define E_muserec_header_part_name   '9'  // <name of part>
+
+#define E_muserec_header_10          '0'  // misc designations
+
+#define E_muserec_header_11          'A'  // group memberships
+#define E_muserec_group_memberships  'A'  // group memberships
+
+// multiple muserec_head_12 lines can occur:
+#define E_muserec_header_12          'B'  // <name1>: part <x> of <num in group>
+#define E_muserec_group              'B'  // <name1>: part <x> of <num in group>
+
+#define E_muserec_unknown            'U'  // unknown record type
+#define E_muserec_empty              'E'  // nothing on line and not header or multi-line comment
+#define E_muserec_deleted            'D'  // deleted line
+
+// non-standard record types for MuseDataSet
+#define E_muserec_filemarker         '+'
+#define E_muserec_filename           'F'
+#define E_musrec_header               1000
+#define E_musrec_footer               2000
+
+
+class MuseRecordBasic {
+	public:
+		                  MuseRecordBasic    (void);
+		                  MuseRecordBasic    (const std::string& aLine, int index = -1);
+		                  MuseRecordBasic    (MuseRecordBasic& aRecord);
+		                 ~MuseRecordBasic    ();
+
+		void              clear              (void);
+		int               isEmpty            (void);
+		void              cleanLineEnding    (void);
+		std::string       extract            (int start, int stop);
+		char&             getColumn          (int index);
+		std::string       getColumns         (int startcol, int endcol);
+		void              setColumns         (std::string& data, int startcol,
+		                                      int endcol);
+		int               getLength          (void) const;
+		std::string       getLine            (void);
+		int               getLineIndex       (void) { return m_lineindex; }
+		void              setLineIndex       (int index);
+		int               getLineNumber      (void) { return m_lineindex+1; }
+		int               getType            (void) const;
+		void              setTypeGraceNote   (void);
+		void              setTypeGraceChordNote(void);
+		void              setHeaderState     (int state);
+		MuseData*         getOwner           (void);
+
+		// Humdrum conversion variables
+		void              setToken           (HTp token);
+		HTp               getToken           (void);
+		void              setVoice           (GridVoice* voice);
+		GridVoice*        getVoice           (void);
+
+		MuseRecordBasic&  operator=          (MuseRecordBasic& aRecord);
+		MuseRecordBasic&  operator=          (MuseRecordBasic* aRecord);
+		MuseRecordBasic&  operator=          (const std::string& aRecord);
+		char&             operator[]         (int index);
+		void              setLine            (const std::string& aString);
+		void              setType            (int aType);
+		void              shrink             (void);
+		void              insertString       (int column, const std::string& strang);
+		void              insertStringRight  (int column, const std::string& strang);
+		void              setString          (std::string& strang);
+		void              appendString       (const std::string& strang);
+		void              appendInteger      (int value);
+		void              appendRational     (HumNum& value);
+		void              append             (const char* format, ...);
+
+		// mark-up accessor functions:
+		void              setAbsBeat         (HumNum value);
+		void              setQStamp          (HumNum value);
+		void              setAbsBeat         (int topval, int botval = 1);
+		void              setQStamp          (int topval, int botval = 1);
+		HumNum            getAbsBeat         (void);
+		HumNum            getQStamp          (void);
+
+		void              setLineDuration    (HumNum value);
+		void              setLineDuration    (int topval, int botval = 1);
+		HumNum            getLineDuration    (void);
+
+		void              setNoteDuration    (HumNum value);
+		void              setNoteDuration    (int topval, int botval = 1);
+		HumNum            getNoteDuration    (void);
+		void              setRoundedBreve    (void);
+
+		void              setMarkupPitch     (int aPitch);
+		int               getMarkupPitch     (void);
+
+		void              setLayer           (int layer);
+		int               getLayer           (void);
+
+		// tied note functions:
+		int               isTied                  (void);
+		int               getLastTiedNoteLineIndex(void);
+		int               getNextTiedNoteLineIndex(void);
+		void              setLastTiedNoteLineIndex(int index);
+		void              setNextTiedNoteLineIndex(int index);
+		int               hasTieGroupStart        (void);
+		int               isNoteAttack            (void);
+		/* HumNum            getTiedNoteDuration     (void); */
+
+		std::string       getLayoutVis       (void);
+
+		// boolean type fuctions:
+		bool              isAnyNote          (void);
+		bool              isRest             (void);
+		bool              isAnyNoteOrRest    (void);
+		bool              isAttributes       (void); // starts with $
+		bool              isAttribute        (void) { return isAttributes(); }
+		bool              isBackup           (void);
+		bool              isBarline          (void);
+		bool              isMeasure          (void) { return isBarline(); }
+		bool              isBodyRecord       (void);
+		bool              isChordGraceNote   (void);
+		bool              isChordNote        (void);
+		bool              isDirection        (void); // starts with "*"
+		bool              isMusicalDirection (void); // starts with "*"
+		bool              isAnyComment       (void); // starts with "@" or between lines starting with &.
+		bool              isLineComment      (void); // starts with "@"
+		bool              isBlockComment     (void); // lines between lines starting with &.
+		bool              isCopyright        (void); // 1st non-comment line in file
+		bool              isCueNote          (void); // starts with "c"
+		bool              isEncoder          (void); // 4th non-comment line in file
+		bool              isFiguredHarmony   (void); // starts with "f"
+		bool              isGraceNote        (void); // starts with "g"
+		bool              isGroup            (void);
+		bool              isGroupMembership  (void);
+		bool              isHeaderRecord     (void);
+		bool              isId               (void);
+		bool              isMovementTitle    (void);
+		bool              isPartName         (void);
+		bool              isRegularNote      (void);
+		bool              isAnyRest          (void);
+		bool              isRegularRest      (void);
+		bool              isInvisibleRest    (void);
+		bool              isPrintSuggestion  (void);  // starts with "P"
+		bool              isSource           (void);
+		bool              isWorkInfo         (void);
+		bool              isWorkTitle        (void);
+		bool              hasTpq             (void);
+		int               getTpq             (void);
+		void              setTpq             (int value);
+		static std::string musedataToUtf8    (std::string& input);
+
+
+	protected:
+		std::string       m_recordString;     // actual characters on line
+
+		std::vector<int>  m_printSuggestions; // print suggestions for this line (if applicable)
+		                                      // print suggestions start with the letter "P" and
+                                            // follow a note/rest line, as well as musical
+		                                      // direction lines that start with "*".  The value
+		                                      // int the difference in indexes between the current
+		                                      //  line and the print suggestion (typically +1).
+
+      std::vector<int> m_musicalDirections; // Musical directions associated with this line
+		                                      // (if applicable) stored as delta indexes.  Musical
+		                                      // direction lines start with "*" and are used for
+		                                      // dynamics, hairpins, etc.  Typically -1 from a note
+		                                      // or -2 if there is a print suggestion for the musical
+		                                      // direction.
+
+		// mark-up data for the line:
+		int               m_lineindex;        // index into original file
+		int               m_type;             // category of MuseRecordBasic record
+		HumNum            m_qstamp;           // dur in quarter notes from start
+		HumNum            m_lineduration;     // duration of line
+		HumNum            m_noteduration;     // duration of note
+
+		int               m_b40pitch;         // base 40 pitch
+		int               m_nexttiednote;     // line number of next note tied to
+		                                      // this one (-1 if no tied note)
+		int               m_lasttiednote;     // line number of previous note tied
+		                                      // to this one (-1 if no tied note)
+		int               m_roundBreve;
+		int               m_header = -1;      // -1 = undefined, 0 = no, 1 = yes
+		int               m_layer = 0;        // voice/layer (track info but may be analyzed)
+		int               m_tpq = 0;          // ticks-per-quarter for durations
+		std::string       m_graphicrecip;     // graphical duration of note/rest
+		GridVoice*			m_voice = NULL;     // conversion structure that token is stored in.
+		MuseData*         m_owner = NULL;
+
+		void              setOwner    (MuseData* owner);
+
+	public:
+		static std::string       trimSpaces         (std::string input);
+
+		friend class MuseRecord;
+		friend class MuseData;
+};
+
+
+std::ostream& operator<<(std::ostream& out, MuseRecordBasic& aRecord);
+std::ostream& operator<<(std::ostream& out, MuseRecordBasic* aRecord);
+
+
+
+// END_MERGE
+
+} // end namespace hum
+
+#endif  /* _MUSERECORDBASIC_H_INCLUDED */
+
+
+
